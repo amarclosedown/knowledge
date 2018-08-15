@@ -1,0 +1,235 @@
+<html xmlns="http://www.w3.org/1999/xhtml" class="sui-componentWrap">
+<head>
+    <link href="https://cdn.bootcss.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdn.bootcss.com/angular.js/1.6.0/angular.min.js"></script>
+    <script src="https://cdn.bootcss.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+    <script src="https://cdn.bootcss.com/echarts/4.1.0.rc2/echarts.min.js"></script>
+</head>
+<body>
+    <div ng-app="myApp" ng-controller="BTree">
+        <div class="container">
+            <nav class="navbar  navbar-dark bg-primary">
+                    <a class="navbar-brand" href="#">二叉树生成demo</a>
+            </nav>
+            <div class="row">
+                    <div class="col-5">
+                        <div class="card my-2">
+                            <h4 class="card-header h6">输入</h4>
+                            <div class="card-body p-2">
+                                <form class="form-inline">
+                                    <input type="number" class="form-control col-6 p-1 m-2" placeholder="请输入数字" ng-model="inputNum">
+                                    <button  class="btn btn-primary btn-sm m-1" ng-disabled="!inputNum || inputNum<0 || arrExists(inputNum)" ng-click="addInput(inputNum)">添加</button>
+                                    <button  class="btn btn-success btn-sm m-1" ng-click="addRandom()">随机添加</button>
+                                </form>
+                                <div class="col-12 h6 text-bold font-weight-bold">数字列表</div>
+                                <!--数字列表-->
+                                <div class="card card-block">
+                                    <div class="card-body p-2 text-center">
+                                        <div class="row p-2 pl-4">
+                                            <div ng-repeat="data in btData" class="col-3 m-1 bg-primary text-white"><span class="text-center">{{data}}</span><span class="float-right"><a href="###" class="text-white" ng-click="remove($index)">×</a></span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="col-12 btn btn-info btn-sm m-6 mb-2 mt-2" ng-click="generate()">解析生成树图</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-7">
+                        <div class="card my-2">
+                            <h4 class="card-header h6">输出</h4>
+                            <div class="card-body">
+                                <!--普通二叉树-->
+                                <div id="btree" style="width: 100%;height:100%;">
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var app = angular.module("myApp",[]);
+        app.controller("BTree", ['$scope',function($scope) {
+            $scope.btData=[];
+            for(var i=0;i<10;i++){
+                var ran=getRandomWithout($scope.btData);
+                $scope.btData.push(ran);
+            }
+            //点击×删除
+            $scope.remove = function(data){
+                $scope.btData.splice(data,1);
+            }
+            //判断数组内是否有该数字
+            $scope.arrExists = function(number){
+                return $.inArray(number, $scope.btData)>-1;
+            }
+            //插入输入的数字
+            $scope.addInput = function(number){
+                $scope.btData.push(number);
+            }
+            //插入随机数字
+            $scope.addRandom = function(){
+                $scope.addInput(getRandomWithout($scope.btData));
+            }
+            //点击解析生成
+            $scope.generate = function(){
+                buildBtreeGraph($scope.btData);
+            }
+        }]);
+        
+        //生成1000以内的随机数，不能出现参数数组内已有的树（但这有个bug，就是random的范围，这数组里都存在，即如果数组满了1000个数字就会出现无穷递归）
+        function getRandomWithout(arr){
+            //先生成随机数
+            var ran=parseInt(100*Math.random());
+            //如果相等则递归生成
+            if($.inArray(ran, arr)>-1 || ran==0){
+                return getRandomWithout(arr);
+            }
+            return ran;
+        }
+        //生成二叉树，转换为Echart的格式，并用Echart显示
+        function buildBtreeGraph(arr){
+            //根据数组生成二叉树结构
+            var bTree=buildBtree(arr);
+            //生成eChart
+            var myChart = echarts.init(document.getElementById('btree'));
+            myChart.showLoading();
+            var chartData = [parseNode(bTree)];
+            myChart.hideLoading();
+            myChart.setOption(option = {
+                tooltip: {
+                    trigger: 'item',
+                    triggerOn: 'mousemove'
+                },
+                series:[
+                    {
+                        type: 'tree',
+                        data: chartData,
+                        left: '2%',
+                        right: '2%',
+                        top: '8%',
+                        bottom: '20%',
+                        symbol: 'circle',
+                        symbolSize : 50,
+                        orient: 'vertical',
+                        showAllSymbol:true,
+                        expandAndCollapse: true,
+                        //标签设置
+                        label: {
+                            normal: {
+                                position: 'inside',
+                                verticalAlign: 'middle',
+                                align: 'center',
+                                fontSize: 20
+                            }
+                        },
+                        //叶子结点设置
+                        leaves: {
+                            label: {
+                                normal: {
+                                    position: 'inside',
+                                    verticalAlign: 'middle',
+                                    align: 'center',
+                                    fontSize: 20
+                                }
+                            }
+                        },
+                        //防止这货不展开，把深度设的深一点
+                        initialTreeDepth : 100,
+                        animationDurationUpdate: 750
+                    }
+                ]
+            });
+        }
+
+        //构建二叉树
+        function buildBtree(arr){
+            if(!arr){
+                return null;
+            }
+            var bTree={
+                data:arr[0]
+            };
+            for(var i=1;i<arr.length;i++){
+                bTree=insertBtree(arr[i],bTree);
+            }
+            return bTree;
+        }
+
+        //二叉树插入子树
+        function insertBtree(obj,tree){
+            //left side
+            if(tree.data>obj){
+                if(!tree.left){
+                    //tree left does not exist,insert into the node
+                    tree.left = {
+                        //出现0以后会不显示
+                        data:obj==0?"0":obj,
+                    }
+                    return tree;
+                }else{
+                    //tree left exist,insert into the subtree
+                    tree.left = insertBtree(obj,tree.left);
+                    return tree;
+                }
+            }else{
+                //right side
+                if(!tree.right){
+                    //tree right does not exist,insert into the node
+                    tree.right = {
+                        data:obj
+                    }
+                    return tree;
+                }else{
+                    //tree right exist,insert into the subtree
+                    tree.right = insertBtree(obj,tree.right);
+                    return tree;
+                }
+            }
+        }
+        //把子树解析成子节点
+        function parseNode(subTree){
+            if(!subTree){
+                return null;
+            }
+            var subNode={
+                name : subTree.data,
+                itemStyle:{
+                    color:'#eceae6'
+                }
+            };
+            var leftSub=parseNode(subTree.left);
+            var rightSub=parseNode(subTree.right);
+            if(leftSub || rightSub){
+                subNode.children=[];
+                if(leftSub){
+                    subNode.children.push(leftSub);
+                    if(!rightSub){
+                        subNode.children.push({
+                                name:'空',
+                                itemStyle:{
+                                    color:'white'
+                                }
+                            });
+                    }
+                }
+                if(rightSub){
+                    if(!leftSub){
+                        subNode.children.push({
+                                name:'空',
+                                itemStyle:{
+                                    color:'white'
+                                }
+                            });
+                    }
+                    subNode.children.push(rightSub);
+                }
+            }
+            return subNode;
+        }
+    </script>
+</body>
+</html>
